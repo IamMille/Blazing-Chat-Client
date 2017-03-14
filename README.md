@@ -1,2 +1,5 @@
 # Blazing-Chat-Client
-Inlämningsuppgift 2
+JavaScript2, Inlämningsuppgift 2
+
+## Demo
+https://iammille.github.io/Blazing-Chat-Client/
