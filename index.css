@@ -1,0 +1,26 @@
+#inputUsername {
+  display: none;
+}
+#chat {
+  display: none;
+}
+
+div.msg {
+  margin: 7px;
+}
+  div.msg span.glyphicon-thumbs-up {
+    margin-left: 10px;
+  }
+  div.msg span.glyphicon-thumbs-up,
+  div.msg span.glyphicon-thumbs-down {
+    display: none;
+  }
+    div.msg span.glyphicon-thumbs-up:hover,
+    div.msg span.glyphicon-thumbs-down:hover {
+      display: inline;
+      cursor: pointer;
+    }
+    div.msg:hover span.glyphicon-thumbs-up,
+    div.msg:hover span.glyphicon-thumbs-down {
+      display: inline;
+    }

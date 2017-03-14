@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Blazing Chat Client</title>
+
+	<!-- Bootstrap core CSS -->
+	<link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+	<!-- Bootstrap theme -->
+	<link href="bootstrap/css/bootstrap-theme.min.css" rel="stylesheet">
+
+	<link href="alertify/alertify.css" id="alertifyCSS" rel="stylesheet">
+
+	<link rel="stylesheet" type="text/css" href="index.css">
+
+</head>
+<body>
+
+  <nav class="navbar navbar-inverse navbar-fixed-top">
+    <div class="container">
+
+			<div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="#">Blazing Chat Client</a>
+      </div>
+
+      <div id="navbar" class="navbar-collapse collapse">
+
+				<ul class="nav navbar-nav">
+					<li>
+						<a href="#" class="dropdown-toggle" data-toggle="dropdown">
+							Tools<b class="caret"></b></a>
+
+	            <ul class="dropdown-menu multi-level">
+
+								<li>
+									<a href="#" class="dropdown-toggle" data-toggle="dropdown">
+									Add books from API</a>
+								</li>
+
+								<li class="divider"></li>
+
+								<li class="dropdown-submenu">
+									<a href="#" class="dropdown-toggle" data-toggle="dropdown">
+									Set fetch delay</a>
+							 </li>
+
+							 <!--<li>
+								 <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+								 Try random API key</a>
+							 </li>-->
+
+							</ul>
+					</li>
+        </ul>
+
+				<ul class="nav navbar-nav navbar-right" id="navLogin">
+				</ul>
+
+      </div><!--/.nav-collapse -->
+
+
+		</div>
+  </nav>
+
+	<div class="container" role="main" style="max-width: 700px;">
+
+		<br /><br /> <br />
+
+		<h1>Chat</h1>
+		<ul>
+		</ul>
+		<hr />
+
+		<div class="row" id="inputUsername">
+		<div class="col-xs-12">
+			<div class="form-group">
+				<div class="input-group">
+					<span class="input-group-btn">
+						<div class="input-group">
+							<span class="input-group-addon">
+								<span class="glyphicon glyphicon-user"></span>
+							</span>
+	            <input id="username" type="text" class="form-control" placeholder="Enter username">
+	            <span class="input-group-btn">
+	                <button id="startChat" type="button" class="btn btn-default">Start chat</button>
+							</span>
+						</div>
+					</span>
+				</div>
+			</div>
+		</div>
+		</div>
+
+		<div class="row">
+		<div class="col-xs-12">
+			<div id="chat">
+				<div class="msg" data-id="12312">
+					(12:34:59) &lt;<b>username</b>&gt; Ett chatt meddelande ser ut såhär!
+					<span class="glyphicon glyphicon-thumbs-up"></span>
+					<span class="glyphicon glyphicon-thumbs-down"></span>
+				</div>
+
+				<div class="msg" data-id="9999">
+					(23:34:01) &lt;<b>Nisse</b>&gt; Och här kommer mer.
+					<span class="glyphicon glyphicon-thumbs-up"></span>
+					<span class="glyphicon glyphicon-thumbs-down"></span>
+				</div>
+			</div>
+	   </div> <!-- end of table cols -->
+		</div> <!-- end of row container table -->
+
+	</div> <!-- end of container -->
+
+	<!-- includes -->
+	<script src="https://www.gstatic.com/firebasejs/3.7.1/firebase.js"></script>
+	<script>
+	  var config = {
+	    apiKey: "AIzaSyBQxXPBat_9a8vdTVpcCGVnogKBixGrpL8",
+	    authDomain: "blazing-chat-client.firebaseapp.com",
+	    databaseURL: "https://blazing-chat-client.firebaseio.com",
+	    storageBucket: "blazing-chat-client.appspot.com",
+	    messagingSenderId: "481660697549"
+	  };
+	  firebase.initializeApp(config);
+	</script>
+
+	<script src="chat.js"></script>
+	<!-- Bootstrap core JavaScript
+	================================================== -->
+	<!-- Placed at the end of the document so the pages load faster -->
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+	<script src="bootstrap/js/bootstrap.min.js"></script>
+	<script src="alertify/alertify.js"></script>
+</body>
+</html>
