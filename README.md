@@ -1,4 +1,4 @@
-# Blazing-Chat-Client
+# Blazing Chat Client
 JavaScript2, Inlämningsuppgift 2
 
 ## Demo
