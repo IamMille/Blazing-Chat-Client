@@ -63,13 +63,12 @@ function doLoadChat()
 }
 function getChatUsers(snapshot)
 {
-  var userObject = snapshot.val();
-
-  var div = document.createElement("div");
-  div.innerText = Object.keys(userObject)[0];
-
   $("#userList").innerHTML = '<h4>Users</h4>';
-  $("#userList").appendChild(div);
+  snapshot.forEach( snap => {
+    var div = document.createElement("div");
+    div.innerText = snap.key;
+    $("#userList").appendChild(div);
+  });
 }
 
 function putChatMsg(e)
