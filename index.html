@@ -74,11 +74,6 @@
 
 		<br /><br /> <br />
 
-		<h1>Chat</h1>
-		<ul>
-		</ul>
-		<hr />
-
 		<div class="row" id="inputUsername">
 		<div class="col-xs-12">
 			<div class="form-group">
@@ -99,23 +94,46 @@
 		</div>
 		</div>
 
-		<div class="row">
-		<div class="col-xs-12">
-			<div id="chat">
-				<div class="msg" data-id="12312">
-					(12:34:59) &lt;<b>username</b>&gt; Ett chatt meddelande ser ut såhär!
-					<span class="glyphicon glyphicon-thumbs-up"></span>
-					<span class="glyphicon glyphicon-thumbs-down"></span>
-				</div>
+		<div id="chatWindow">
+			<div class="row">
+				<div class="col-xs-10" id="chatMsgs">
 
-				<div class="msg" data-id="9999">
-					(23:34:01) &lt;<b>Nisse</b>&gt; Och här kommer mer.
-					<span class="glyphicon glyphicon-thumbs-up"></span>
-					<span class="glyphicon glyphicon-thumbs-down"></span>
+					<div class="msg" data-id="12312">
+						<div class="icons">
+							<span class="glyphicon glyphicon-thumbs-up"></span>
+							<span class="glyphicon glyphicon-thumbs-down"></span>
+						</div>
+						<div class="text">
+							(12:34:59) &lt;<b>username</b>&gt; Ett chatt meddelande ser ut såhär!
+						</div>
+					</div>
+
+					<div class="msg" data-id="4321">
+						<div class="icons">
+							<span class="glyphicon glyphicon-thumbs-up"></span>
+							<span class="glyphicon glyphicon-thumbs-down"></span>
+						</div>
+						<div class="text">
+							(12:34:59) &lt;<b>Nisse</b>&gt; Och här kommer mer!
+						</div>
+					</div>
+				</div> <!-- col10 end -->
+
+				<div class="col-xs-2" id="userList">
+						<h4>Users</h4>
+						<div>Benton</div>
+						<div>Nisse</div>
+						<div>username</div>
 				</div>
+			</div> <!-- row end -->
+
+			<div class="row">
+					<div class="col-xs-12" id="chatInput">
+						<input name="chatinput" class="form-control" placeholder="Enter your message" />
+					</div>
 			</div>
-	   </div> <!-- end of table cols -->
-		</div> <!-- end of row container table -->
+
+	</div> <!-- chatWindow end -->
 
 	</div> <!-- end of container -->
 
@@ -133,6 +151,7 @@
 	</script>
 
 	<script src="chat.js"></script>
+	<script src="json.js"></script>
 	<!-- Bootstrap core JavaScript
 	================================================== -->
 	<!-- Placed at the end of the document so the pages load faster -->

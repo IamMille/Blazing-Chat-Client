@@ -1,26 +1,52 @@
 #inputUsername {
   display: none;
 }
-#chat {
+
+#chatWindow {
   display: none;
 }
 
-div.msg {
-  margin: 7px;
+#chatMsgs {
+
 }
-  div.msg span.glyphicon-thumbs-up {
-    margin-left: 10px;
+  .msg {
+    margin: 7px;
+    display: flex;
+    border: 1px solid white;
   }
-  div.msg span.glyphicon-thumbs-up,
-  div.msg span.glyphicon-thumbs-down {
-    display: none;
+    .msg .icons {
+      flex: 0 0 38px;
+      align-self: center;
+      color: white;
+    }
+    .msg:hover .icons {
+      color: black;
+    }
+      .msg .icons span {
+        cursor: pointer;
+      }
+    .msg .text {
+      flex: 1 1 auto;
+    }
+    .msg:hover {
+      border-top: 1px dashed #aaa;
+      border-bottom: 1px dashed #aaa;
+    }
+
+#userList {
+  border-left: 1px dotted #aaa;
+  height: 500px;
+}
+  #userList h4 {
+    margin-top: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed #aaa
   }
-    div.msg span.glyphicon-thumbs-up:hover,
-    div.msg span.glyphicon-thumbs-down:hover {
-      display: inline;
-      cursor: pointer;
-    }
-    div.msg:hover span.glyphicon-thumbs-up,
-    div.msg:hover span.glyphicon-thumbs-down {
-      display: inline;
-    }
+  #userList div {
+    padding: 1px;
+  }
+
+#chatInput {
+  margin-top: 10px;
+  margin-left: 38px;
+}
