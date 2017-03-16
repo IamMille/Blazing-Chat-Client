@@ -76,7 +76,7 @@ function doLoginGithub()
       $("#chatWindow").style.display = "block";
 
       console.log("User is logged in.");
-      alertify.success("You've been logged in!");
+      alertify.success("Welcome " + user.displayName);
 
     }).catch(function(error) {
       // Handle Errors here.
