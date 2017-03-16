@@ -8,7 +8,8 @@ alertify.logPosition("bottom right");
 alertify.maxLogItems(2);
 
 $("#startChat").addEventListener("click", startChat);
-doLogin();
+
+doLoginGithub();
 
 // var database = firebase.database();
 
@@ -59,7 +60,36 @@ function doAddMessage(oMsg)
   $("#chatMsgs").appendChild(div);
 
 }
+function doLoginGithub()
+{
+  var provider = new firebase.auth.GithubAuthProvider();
+  firebase.auth().signInWithPopup(provider)
+    .then(function(result) {
+      var token = result.credential.accessToken;
+      var user = result.user;
 
+      console.log("doLoginGithub: ", result);
+
+      $("#navLogin").innerHTML = '<li><a href="#">Log Out</a></li>';
+      $("#navLogin li:first-child a").addEventListener("click", doLogout);
+      $("#inputUsername").style.display = "";
+      $("#chatWindow").style.display = "block";
+
+      console.log("User is logged in.");
+      alertify.success("You've been logged in!");
+
+    }).catch(function(error) {
+      // Handle Errors here.
+      var errorCode = error.code;
+      var errorMessage = error.message;
+      // The email of the user's account used.
+      var email = error.email;
+      // The firebase.auth.AuthCredential type that was used.
+      var credential = error.credential;
+      console.log("doLoginGithub() failed:", error);
+      doLogout();
+    });
+}
 function doLogin()
 {
   var username = sessionStorage.getItem("username");
