@@ -1,5 +1,5 @@
 #inputUsername {
-  display: none;
+  display: block;
 }
 
 #chatWindow {
@@ -7,7 +7,9 @@
 }
 
 #chatMsgs {
-
+  height: 500px;
+  overflow-x: hidden;
+  overflow-y: scroll;
 }
   .msg {
     margin: 7px;
@@ -27,6 +29,8 @@
       }
     .msg .text {
       flex: 1 1 auto;
+      overflow-wrap: break-word;
+      width: 0; /* fix for linebreak */
     }
     .msg:hover {
       border-top: 1px dashed #aaa;
@@ -49,4 +53,5 @@
 #chatInput {
   margin-top: 10px;
   margin-left: 38px;
+  margin-right: 38px;
 }
