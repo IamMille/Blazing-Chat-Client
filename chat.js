@@ -26,6 +26,24 @@ class App
     localStorage.setItem("username", this.user.nickname);
     this.dom.displayLogin();
 
+
+    firebase.database().ref(".info/connected").on('value', (snapshot) =>
+    {
+      if (snapshot.val()) { // User is online.
+        console.log( (new Date()).getTime(), "USER ONLINE" );
+
+        var newId = firebase.database().ref().child('msgs').push().key;
+        firebase.database().ref(`users/${this.user.nickname}`).onDisconnect().set(null);
+        firebase.database().ref(`msgs/${newId}`).onDisconnect().set({
+          'event': "PART",
+          timestamp: firebase.database.ServerValue.TIMESTAMP,
+          chan: "#general",
+          user: this.user.nickname,
+          msg: false
+        });
+      }
+    }); // onConnected END
+
     // make firebase cache the results before adding JOIN
     firebase.database().ref('msgs/').once('value', () =>
     {
@@ -48,6 +66,7 @@ class App
         timestamp: firebase.database.ServerValue.TIMESTAMP
       });
 
+      //console.log( (new Date()).getTime(), "cache complete, add JOIN" );
     });
 
     firebase.database().ref('msgs/').on('child_added', this.dom.insertChatMsg.bind(this));
@@ -104,7 +123,7 @@ class App
   registerChatLike(event) {
     var el = event.target, like;
 
-    if (el.classList.contains("me"))
+    if (el.classList.contains("me")) // user is resetting like
       like = null;
     else if (el.classList.contains('glyphicon-thumbs-up'))
       like = true;
@@ -126,7 +145,6 @@ class App
         this.dom.updateLike(snapshot).bind(this);
 
       });*/
-
 
     /*firebase.database()
       .ref(`likes/${msgid}/${this.user.nickname}`)
@@ -236,6 +254,11 @@ class Dom extends App
     }
 
     var div = $(`#chatMsgs div[data-id='${msgId}'] .icons`);
+    if (!div || div.length === 0) {
+      console.log("updateLike(): msg does not exist:", msgId);
+      return;
+    }
+
     div.innerHTML = `
         <span class="glyphicon glyphicon-thumbs-up">${likesUsers.length}</span>
         <span class="glyphicon glyphicon-thumbs-down">${dislikesUsers.length}</span>
