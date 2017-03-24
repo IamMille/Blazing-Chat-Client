@@ -281,6 +281,9 @@ class Dom extends App
     if (keysRecivied.length != keysRequired.length) {
       console.log("doAddMessage(): missing parameters, \nneed:", keysRequired, "\ngot: ", keysRecivied, "\npayload:", oMsg ); return; }
 
+    // if msg already exist delete
+    $(`div[data-id='${oMsg.id}']`).forEach( el => el.outerHTML = "" );
+
     // convert unix epoch to time
     oMsg.time = (new Date(oMsg.timestamp)).toTimeString().slice(0,8); //hh:mm:ss
 
