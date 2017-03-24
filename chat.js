@@ -26,7 +26,8 @@ class App
     localStorage.setItem("username", this.user.nickname);
     this.dom.displayLogin();
 
-
+    firebase.database().goOnline();
+    // monitor online presence
     firebase.database().ref(".info/connected").on('value', (snapshot) =>
     {
       if (snapshot.val()) { // User is online.
@@ -50,8 +51,6 @@ class App
 
       if (this.user.nickname != 'Mille')  //TODO: skip during debugging
       {
-        // save event in chat
-
         var newId = firebase.database().ref().child('msgs').push().key;
         firebase.database().ref(`msgs/${newId}`).set({
           "event": "JOIN",
@@ -90,19 +89,7 @@ class App
     console.log("User is logged out.");
     if (event) alertify.log("You've been logged out.");
 
-    if (this.user.nickname == "Mille") return; //TODO: debug
-
-    console.log(`doLogout user ${username}`);
-    var newId = firebase.database().ref().child('msgs').push().key;
-    firebase.database().ref(`users/${username}`).set(null);
-    firebase.database().ref(`msgs/${newId}`).set({
-      'event': "PART",
-      timestamp: firebase.database.ServerValue.TIMESTAMP,
-      chan: "#general",
-      user: this.user.nickname,
-      msg: false
-    });
-
+    //firebase.database().goOffline();
   }
 
   registerChatMsg(event) {
