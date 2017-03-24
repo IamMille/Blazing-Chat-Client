@@ -12,9 +12,30 @@ class App
     console.log("$$");
   }
 
-  doInit() {
-    //this = App
+  doInit()
+  {
+    // monitor online presence
+    firebase.database().goOffline();
+    firebase.database().ref(".info/connected").on('value', (snapshot) =>
+    {
+      if (snapshot.val()) { // User is online.
+        console.log( (new Date()).getTime(), "USER ONLINE" );
+
+        var newId = firebase.database().ref().child('msgs').push().key;
+        firebase.database().ref(`users/${this.user.nickname}`).onDisconnect().remove();
+        firebase.database().ref(`users/${this.user.nickname}`).onDisconnect().set(null);
+        firebase.database().ref(`msgs/${newId}`).onDisconnect().remove();
+        firebase.database().ref(`msgs/${newId}`).onDisconnect().set({
+          'event': "PART",
+          timestamp: firebase.database.ServerValue.TIMESTAMP,
+          chan: "#general",
+          user: this.user.nickname,
+          msg: false
+        });
+      }
+    }); // onConnected END
   }
+
   doTerminate() { // TODO: test this!!
     if (this.user.nickname) this.dom.displayLogout();
   }
@@ -27,23 +48,6 @@ class App
     this.dom.displayLogin();
 
     firebase.database().goOnline();
-    // monitor online presence
-    firebase.database().ref(".info/connected").on('value', (snapshot) =>
-    {
-      if (snapshot.val()) { // User is online.
-        console.log( (new Date()).getTime(), "USER ONLINE" );
-
-        var newId = firebase.database().ref().child('msgs').push().key;
-        firebase.database().ref(`users/${this.user.nickname}`).onDisconnect().set(null);
-        firebase.database().ref(`msgs/${newId}`).onDisconnect().set({
-          'event': "PART",
-          timestamp: firebase.database.ServerValue.TIMESTAMP,
-          chan: "#general",
-          user: this.user.nickname,
-          msg: false
-        });
-      }
-    }); // onConnected END
 
     // make firebase cache the results before adding JOIN
     firebase.database().ref('msgs/').once('value', () =>
@@ -85,11 +89,12 @@ class App
     //firebase.auth().signOut()
       //.then( result => console.log("Firebase singout successfull"))
       //.catch( error => console.log("Firebase singout failed. Perhaps not logged in?"));
+    firebase.database().goOffline();
 
     console.log("User is logged out.");
     if (event) alertify.log("You've been logged out.");
 
-    firebase.database().goOffline();
+
   }
 
   registerChatMsg(event) {
