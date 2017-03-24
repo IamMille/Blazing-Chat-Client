@@ -4,35 +4,58 @@ class App
     if (isCalledFromExtended) return; // hacky?
     this.user = new User();
     this.dom = new Dom();
+    this.doInit();
     this.doLogin();
+  }
+
+  static test() {
+    console.log("$$");
+  }
+
+  doInit() {
+    //this = App
+  }
+  doTerminate() { // TODO: test this!!
+    if (this.user.nickname) this.dom.displayLogout();
   }
 
   doLogin() {
     if (!(this.user.hasValidNickname())) { this.dom.displayLogout(); return; }
 
+    //test();
     localStorage.setItem("username", this.user.nickname);
     this.dom.displayLogin();
 
+    // make firebase cache the results before adding JOIN
+    firebase.database().ref('msgs/').once('value', () =>
+    {
 
-    firebase.database().ref(`users/${this.user.nickname}`).set({
-      timestamp: firebase.database.ServerValue.TIMESTAMP
+      if (this.user.nickname != 'Mille')  //TODO: skip during debugging
+      {
+        // save event in chat
+
+        var newId = firebase.database().ref().child('msgs').push().key;
+        firebase.database().ref(`msgs/${newId}`).set({
+          "event": "JOIN",
+          timestamp: firebase.database.ServerValue.TIMESTAMP,
+          chan: "#general",
+          user: this.user.nickname,
+          msg: false // null would remove the node
+        });
+      }
+
+      firebase.database().ref(`users/${this.user.nickname}`).set({
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+      });
+
     });
 
-    firebase.database().ref('users/').on('value', this.dom.updateUserlist);
-    firebase.database().ref('msgs/').on('child_added', this.dom.insertChatMsg);
+    firebase.database().ref('msgs/').on('child_added', this.dom.insertChatMsg.bind(this));
+    firebase.database().ref('users/').on('value', this.dom.updateUserlist.bind(this));
+    firebase.database().ref('likes/').on('child_added', this.dom.updateLike.bind(this, "added"));
+    firebase.database().ref('likes/').on('child_changed', this.dom.updateLike.bind(this, "changed"));
+    firebase.database().ref('likes/').on('child_removed', this.dom.updateLike.bind(this, "removed"));
 
-    //////////////////////////////////////////////////////
-    if (this.user.nickname == 'Mille') return; //TODO: skip during debugging
-
-    // save event in chat
-    var newId = firebase.database().ref().child('msgs').push().key;
-    firebase.database().ref(`msgs/${newId}`).set({
-      "event": "JOIN",
-      timestamp: firebase.database.ServerValue.TIMESTAMP,
-      chan: "#general",
-      user: this.user.nickname,
-      msg: false // null would remove the node
-    });
   } // doLogin END
 
   doLogout(event) { // can be triggered by onUnload event
@@ -50,6 +73,7 @@ class App
 
     if (this.user.nickname == "Mille") return; //TODO: debug
 
+    console.log(`doLogout user ${username}`);
     var newId = firebase.database().ref().child('msgs').push().key;
     firebase.database().ref(`users/${username}`).set(null);
     firebase.database().ref(`msgs/${newId}`).set({
@@ -75,6 +99,55 @@ class App
       msg:  $("#chatInput input").value
     });
     $("#chatInput input").value = "";
+  }
+
+  registerChatLike(event) {
+    var el = event.target, like;
+
+    if (el.classList.contains("me"))
+      like = null;
+    else if (el.classList.contains('glyphicon-thumbs-up'))
+      like = true;
+    else if (el.classList.contains('glyphicon-thumbs-down'))
+      like = false;
+
+    var msgid = el.parentElement.parentElement.getAttribute("data-id");
+
+    console.log("App::registerChatLike():", msgid, like);
+
+    var updates = {};
+    updates[`likes/${msgid}/${this.user.nickname}`] = like;
+    firebase.database().ref().update(updates);
+
+    /*firebase.database()
+      .ref(`likes/${msgid}/`)
+      .on("value", snapshot => {
+        console.log("after delete ref:", snapshot.val());
+        this.dom.updateLike(snapshot).bind(this);
+
+      });*/
+
+
+    /*firebase.database()
+      .ref(`likes/${msgid}/${this.user.nickname}`)
+      .transaction( currentValue => {
+
+        if (currentValue === like) {
+          console.log("registerChatLike reset");
+          return null; // reset users like
+        }
+        else return like;
+
+      }, (error, committed, snapshot) => {
+
+        if (error)
+          console.log('Transaction failed abnormally!', error);
+        else if (!committed)
+          console.log('Transaction aborted.');
+        else
+          console.log('Transaction completed.', committed);
+      }, false);*/
+
   }
 
 }
@@ -109,15 +182,17 @@ class User extends App
 
 class Dom extends App
 {
-  constructor() {
+  constructor()
+  {
     super(true);
-    this.parent = Object.getPrototypeOf(this);
+    this.parent = this.__proto__; //Object.getPrototypeOf(this);
     $("#username").value = localStorage.getItem("username");
   }
 
-  displayLogin() {
+  displayLogin()
+  {
     $("#navLogin").innerHTML = '<li><a href="#">Log Out</a></li>';
-    $("#navLogin li:first-child a").addEventListener("click", this.doLogout.bind(this.parent));
+    $("#navLogin li:first-child a").addEventListener("click", this.doLogout.bind(this.__proto__));
     $("#inputUsername").style.display = "none";
     $("#chatWindow").style.display = "block";
     $("#chatMsgs").innerHTML = "";
@@ -127,14 +202,16 @@ class Dom extends App
     alertify.success("You've been logged in!");
   }
 
-  displayLogout() {
+  displayLogout()
+  {
     $("#navLogin").innerHTML = "";
     $("#inputUsername").style.display = "block";
     $("#chatWindow").style.display = "";
     // enable input
   }
 
-  updateUserlist(snapshot) { // Firebase onValue
+  updateUserlist(snapshot) // onValue
+  {
     $("#userList").innerHTML = '<h4>Users</h4>';
     snapshot.forEach( snap => {
       var div = document.createElement("div");
@@ -143,9 +220,47 @@ class Dom extends App
     });
   }
 
-  insertChatMsg(snapshot) { // Firebase onChildAdded
+  updateLike(eventName, snapshot) // onChildAdded onChildChanged onChildRemoved
+  {
+    var likes = snapshot.val();
+    var msgId = snapshot.key;
+
+    //console.log("Dom::updateLike()", snapshot, eventName, likes, msgId);
+
+    var likesUsers = [], dislikesUsers = [];
+
+    for (var user in likes) {
+      if (eventName == "removed") {}
+      else if (likes[user] === true) likesUsers.push(user);
+      else if (likes[user] === false) dislikesUsers.push(user);
+    }
+
+    var div = $(`#chatMsgs div[data-id='${msgId}'] .icons`);
+    div.innerHTML = `
+        <span class="glyphicon glyphicon-thumbs-up">${likesUsers.length}</span>
+        <span class="glyphicon glyphicon-thumbs-down">${dislikesUsers.length}</span>
+    `.replace(/(\s)+/, "$1"); // remove multiple whitespaces for cleaner dom?
+
+    var divThup = div.querySelector("span[class='glyphicon glyphicon-thumbs-up']");
+    var divThdw = div.querySelector("span[class='glyphicon glyphicon-thumbs-down']");
+    divThup.addEventListener("click", this.registerChatLike.bind(this));
+    divThdw.addEventListener("click", this.registerChatLike.bind(this));
+
+    var me = this.user.nickname;
+    if (likesUsers.indexOf(me) > -1) divThup.classList.add("me");
+    else if (dislikesUsers.indexOf(me) > -1) divThdw.classList.add("me");
+
+    if (likesUsers.length + dislikesUsers.length > 0) div.classList.add("show");
+    else div.classList.remove("show");
+
+    //console.log(likesUsers.length, dislikesUsers.length);
+  }
+
+  insertChatMsg(snapshot)  // onChildAdded
+  {
     var oMsg = snapshot.val();
-    //console.log(oMsg);
+        oMsg.id = snapshot.key;
+
     var keysRequired = ["chan", "event", "msg", "timestamp", "user"];
     var keysRecivied = keysRequired.filter(key => oMsg.hasOwnProperty(key));
     if (keysRecivied.length != keysRequired.length) {
@@ -163,8 +278,8 @@ class Dom extends App
       case 'PRIVMSG':
         div.innerHTML = `
           <div class="icons">
-            <span class="glyphicon glyphicon-thumbs-up"></span>
-            <span class="glyphicon glyphicon-thumbs-down"></span>
+            <span class="glyphicon glyphicon-thumbs-up">0</span>
+            <span class="glyphicon glyphicon-thumbs-down">0</span>
           </div>
           <div class="text">
             (${oMsg.time})
@@ -175,8 +290,8 @@ class Dom extends App
       case 'JOIN':
         div.innerHTML = `
           <div class="icons">
-            <span class="glyphicon glyphicon-thumbs-up"></span>
-            <span class="glyphicon glyphicon-thumbs-down"></span>
+            <span class="glyphicon glyphicon-thumbs-up">0</span>
+            <span class="glyphicon glyphicon-thumbs-down">0</span>
           </div>
           <div class="text">
             (${oMsg.time})
@@ -187,8 +302,8 @@ class Dom extends App
       case 'PART':
         div.innerHTML = `
           <div class="icons">
-            <span class="glyphicon glyphicon-thumbs-up"></span>
-            <span class="glyphicon glyphicon-thumbs-down"></span>
+            <span class="glyphicon glyphicon-thumbs-up">0</span>
+            <span class="glyphicon glyphicon-thumbs-down">0</span>
           </div>
           <div class="text">
             (${oMsg.time})
@@ -197,28 +312,20 @@ class Dom extends App
         `.trim(); break;
     } // switch end
 
+    div.querySelector("span[class='glyphicon glyphicon-thumbs-up']")
+       .addEventListener("click", this.registerChatLike.bind(this));
+
+    div.querySelector("span[class='glyphicon glyphicon-thumbs-down']")
+       .addEventListener("click", this.registerChatLike.bind(this));
+
     $("#chatMsgs").appendChild(div);
     $("#chatMsgs").scrollTop = $("#chatMsgs").scrollHeight - $("#chatMsgs").clientHeight;
   }
 } // Dom() END
 
+
+/////////////////////////////// EVENTS ///////////////////////////
 var app;
-
-window.addEventListener("load", () =>
-{
-  $.noConflict(); // disabe bootstraps jQuery
-  app = new App();
-
-  alertify.logPosition("bottom right");
-  alertify.maxLogItems(2);
-
-  $("#startChat").addEventListener("click", app.doLogin.bind(app));
-  $("#chatInput input").addEventListener("keyup", app.registerChatMsg.bind(app));
-}); // onLoad end
-
-window.addEventListener("unload", () => {
-  if (app.user.nickname) app.dom.displayLogout();
-});
 
 function $(str)
 {
@@ -228,6 +335,36 @@ function $(str)
   else return [];
 }
 
+window.addEventListener("load", () =>
+{
+  $.noConflict(); // disabe bootstraps jQuery
+
+  alertify.logPosition("bottom right");
+  alertify.maxLogItems(2);
+
+  app = new App();
+
+  // move to App init
+  $("#startChat").addEventListener("click", app.doLogin.bind(app));
+  $("#chatInput input").addEventListener("keyup", app.registerChatMsg.bind(app));
+}); // onLoad end
+
+window.addEventListener("beforeunload", () => {
+  app.terminate.bind(app);
+
+  var newId = firebase.database().ref().child('msgs').push().key;
+  firebase.database().ref(`users/${username}`).set(null);
+  firebase.database().ref(`msgs/${newId}`).set({
+    'event': "PART",
+    timestamp: firebase.database.ServerValue.TIMESTAMP,
+    chan: "#general",
+    user: app.user.nickname,
+    msg: false
+  });
+
+});
+
+///////////////////////////// TEST ///////////////////////////////
 
 function doLoginGithub()
 {
@@ -244,8 +381,9 @@ function doLoginGithub()
     });
 }
 
-// manual edit database
-function firebaseAddDataColumn() {
+// manual fix database entries
+function firebaseAddDataColumn()
+{
   firebase.database().ref('msgs/').once('value', snapshot => {
     for (let key in snapshot.val()) {
       var obj = snapshot.val()[key];
