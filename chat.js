@@ -89,7 +89,7 @@ class App
     console.log("User is logged out.");
     if (event) alertify.log("You've been logged out.");
 
-    //firebase.database().goOffline();
+    firebase.database().goOffline();
   }
 
   registerChatMsg(event) {
