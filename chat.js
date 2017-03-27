@@ -115,7 +115,7 @@ class App
       like = false;
 
     var msgId = el.parentElement.parentElement.getAttribute("data-id");
-    db.ref(`likes/${msgId}`).set({ [usr.nickname]: like });
+    db.ref().update({ [`likes/${msgId}/${usr.nickname}`]: like });
   }
 
 }
@@ -191,12 +191,15 @@ class Dom
     div.innerHTML = `
         <span class="glyphicon glyphicon-thumbs-up">${likesUsers.length}</span>
         <span class="glyphicon glyphicon-thumbs-down">${dislikesUsers.length}</span>
-    `.replace(/(\s)+/, "$1"); // remove multiple whitespaces for cleaner dom?
+    `;
 
     var divThup = div.querySelector("span[class='glyphicon glyphicon-thumbs-up']");
     var divThdw = div.querySelector("span[class='glyphicon glyphicon-thumbs-down']");
     divThup.addEventListener("click", app.registerChatLike.bind(app));
     divThdw.addEventListener("click", app.registerChatLike.bind(app));
+
+    if (likesUsers.length > 0) divThup.setAttribute("title", likesUsers.join(", "));
+    if (dislikesUsers.length > 0) divThdw.setAttribute("title", dislikesUsers.join(", "));
 
     var nick = usr.nickname;
     if (likesUsers.indexOf(nick) > -1) divThup.classList.add("me");
