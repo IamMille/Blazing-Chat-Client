@@ -1,115 +1,111 @@
 class App
 {
-  constructor(isCalledFromExtended) {
-    if (isCalledFromExtended) return; // hacky?
-    this.user = new User();
-    this.dom = new Dom();
+  constructor() {
+    usr = new User();
+    dom = new Dom();
+    app = this;
+
     this.doInit();
     this.doLogin();
   }
 
-  static test() {
-    console.log("$$");
-  }
-
-  doInit()
-  {
-    // monitor online presence
-    firebase.database().goOffline();
-    firebase.database().ref(".info/connected").on('value', (snapshot) =>
-    {
-      if (snapshot.val()) { // User is online.
-        console.log( (new Date()).getTime(), "USER ONLINE" );
-
-        var newId = firebase.database().ref().child('msgs').push().key;
-        firebase.database().ref(`users/${this.user.nickname}`).onDisconnect().remove();
-        firebase.database().ref(`users/${this.user.nickname}`).onDisconnect().set(null);
-        firebase.database().ref(`msgs/${newId}`).onDisconnect().remove();
-        firebase.database().ref(`msgs/${newId}`).onDisconnect().set({
-          'event': "PART",
-          timestamp: firebase.database.ServerValue.TIMESTAMP,
-          chan: "#general",
-          user: this.user.nickname,
-          msg: false
-        });
-      }
-    }); // onConnected END
-  }
-
-  doTerminate() { // TODO: test this!!
-    if (this.user.nickname) this.dom.displayLogout();
+  doInit() {
+    $("#startChat").addEventListener("click", app.doLogin.bind(app));
+    $("#chatInput input").addEventListener("keyup", app.registerChatMsg.bind(app));
   }
 
   doLogin() {
-    if (!(this.user.hasValidNickname())) { this.dom.displayLogout(); return; }
+    if (!(usr.hasValidNickname())) { dom.displayLogout(); return; }
 
-    //test();
-    localStorage.setItem("username", this.user.nickname);
-    this.dom.displayLogin();
+    if (usr.nickname.substr(0,5) != "Guest")
+      localStorage.setItem("username", usr.nickname);
 
-    firebase.database().goOnline();
+    dom.displayLogin();
 
-    // make firebase cache the results before adding JOIN
-    firebase.database().ref('msgs/').once('value', () =>
-    {
+    // check duplicate username
+    db.ref('users/')
+      .orderByKey().equalTo(usr.nickname) // orderBy needed for equalTo'
+      .once("value").then(snapshot => {
 
-      if (this.user.nickname != 'Mille')  //TODO: skip during debugging
-      {
-        var newId = firebase.database().ref().child('msgs').push().key;
-        firebase.database().ref(`msgs/${newId}`).set({
-          "event": "JOIN",
-          timestamp: firebase.database.ServerValue.TIMESTAMP,
-          chan: "#general",
-          user: this.user.nickname,
-          msg: false // null would remove the node
-        });
+      if (snapshot.val()) { // is duplicate
+        usr.nickname = "Guest" + ("00000" + Math.floor(Math.random() * 99999) ).substr(-5,5);
+        alertify.delay(5).log(`Nickname ${usr.nickname} in use.`);
+        alertify.delay(7).log(`You have been rename to ${usr.nickname}`);
       }
 
-      firebase.database().ref(`users/${this.user.nickname}`).set({
-        timestamp: firebase.database.ServerValue.TIMESTAMP
-      });
+      console.log( (new Date()).getTime(), "USER ONLINE", usr.nickname, snapshot.val() );
 
-      //console.log( (new Date()).getTime(), "cache complete, add JOIN" );
-    });
+      // Sync with server before JOIN
+      db.ref('msgs/').once('value', () =>
+      {
+        console.log( (new Date()).getTime(), "Sync" );
+        var nick = usr.nickname;
 
-    firebase.database().ref('msgs/').on('child_added', this.dom.insertChatMsg.bind(this));
-    firebase.database().ref('users/').on('value', this.dom.updateUserlist.bind(this));
-    firebase.database().ref('likes/').on('child_added', this.dom.updateLike.bind(this, "added"));
-    firebase.database().ref('likes/').on('child_changed', this.dom.updateLike.bind(this, "changed"));
-    firebase.database().ref('likes/').on('child_removed', this.dom.updateLike.bind(this, "removed"));
+        db.ref(`users/${nick}`).set({ timestamp: TMS });
+
+        if (usr.nickname != 'Mille') {  //TODO: remove
+          let newId = db.ref().child('msgs').push().key;
+          db.ref(`msgs/${newId}`).set({
+            "event": "JOIN",
+            timestamp: TMS,
+            chan: "#general",
+            user: nick,
+            msg: false // null would remove the node
+          });
+        }
+
+        console.log( (new Date()).getTime(), "Add listeners onDisconnect" );
+        db.ref(`users/${nick}`).onDisconnect().cancel(); // needed if logout, then login
+        db.ref(`users/${nick}`).onDisconnect().set(null);
+
+        if (usr.nickname != "Mille") { //TODO: remove
+          let newId = db.ref().child('msgs').push().key;
+          db.ref(`msgs/${newId}`).onDisconnect().cancel();
+          db.ref(`msgs/${newId}`).onDisconnect().set({
+            'event': "PART",
+            timestamp: TMS,
+            chan: "#general",
+            user: nick, // exists for first time user???
+            msg: false
+          });
+        }
+      }); // sync END
+
+      console.log( (new Date()).getTime(), "Add rest of listeners for chat" );
+      db.ref('msgs/').on('child_added', dom.insertChatMsg.bind(dom));
+      db.ref('users/').on('value', dom.updateUserlist.bind(dom));
+      db.ref('likes/').on('child_added', dom.updateLike.bind(dom, "added"));
+      db.ref('likes/').on('child_changed', dom.updateLike.bind(dom, "changed"));
+      db.ref('likes/').on('child_removed', dom.updateLike.bind(dom, "removed"));
+
+    }); // onValue END
 
   } // doLogin END
 
   doLogout(event) { // can be triggered by onUnload event
-    console.log( "App::doLogout() this:", this );
-
-    this.displayLogout();
-    //localStorage.removeItem("username");
-
-    //firebase.auth().signOut()
-      //.then( result => console.log("Firebase singout successfull"))
-      //.catch( error => console.log("Firebase singout failed. Perhaps not logged in?"));
-    firebase.database().goOffline();
-
-    console.log("User is logged out.");
+    dom.displayLogout();
     if (event) alertify.log("You've been logged out.");
-
-
+    db.goOffline(); //trigger firebase disconnect
+    db.goOnline();
   }
 
   registerChatMsg(event) {
     if (event.key != "Enter") return;
 
-    var newId = firebase.database().ref().child('msgs').push().key;
-
-    firebase.database().ref(`msgs/${newId}`).set({
+    db.ref('msgs/').push({
       'event': "PRIVMSG",
-      timestamp: firebase.database.ServerValue.TIMESTAMP,
+      timestamp: TMS,
       chan: "#general",
-      user: this.user.nickname,
+      user: usr.nickname,
       msg:  $("#chatInput input").value
     });
+
     $("#chatInput input").value = "";
+    $("#chatInput input").disabled = true;
+    setTimeout(() => {
+        $("#chatInput input").disabled = false;
+        $("#chatInput input").focus();
+    }, 700);
   }
 
   registerChatLike(event) {
@@ -122,53 +118,14 @@ class App
     else if (el.classList.contains('glyphicon-thumbs-down'))
       like = false;
 
-    var msgid = el.parentElement.parentElement.getAttribute("data-id");
-
-    console.log("App::registerChatLike():", msgid, like);
-
-    var updates = {};
-    updates[`likes/${msgid}/${this.user.nickname}`] = like;
-    firebase.database().ref().update(updates);
-
-    /*firebase.database()
-      .ref(`likes/${msgid}/`)
-      .on("value", snapshot => {
-        console.log("after delete ref:", snapshot.val());
-        this.dom.updateLike(snapshot).bind(this);
-
-      });*/
-
-    /*firebase.database()
-      .ref(`likes/${msgid}/${this.user.nickname}`)
-      .transaction( currentValue => {
-
-        if (currentValue === like) {
-          console.log("registerChatLike reset");
-          return null; // reset users like
-        }
-        else return like;
-
-      }, (error, committed, snapshot) => {
-
-        if (error)
-          console.log('Transaction failed abnormally!', error);
-        else if (!committed)
-          console.log('Transaction aborted.');
-        else
-          console.log('Transaction completed.', committed);
-      }, false);*/
-
+    var msgId = el.parentElement.parentElement.getAttribute("data-id");
+    db.ref(`likes/${msgId}`).set({ [usr.nickname]: like });
   }
 
 }
 
-class User extends App
+class User
 {
-  constructor(parent) {
-      super(true);
-      this.parent = Object.getPrototypeOf(this);
-  }
-
   set nickname(val) {
     if (val) $("#username").value = val;
   }
@@ -177,32 +134,26 @@ class User extends App
   }
   hasValidNickname()
   {
-    var nick = this.nickname;
-
-    if (!Boolean(nick))
+    if (!Boolean(usr.nickname))
       return;
-    else if (nick.length < 2)
+    else if (usr.nickname.length < 2)
       alert("Choose a nickname at least 2 characters long");
-    else if (nick.match(/\s/))
+    else if (usr.nickname.match(/\s/))
       alert("Choose a nickname without blankspaces");
     else
       return true;
   }
 }
 
-class Dom extends App
+class Dom
 {
-  constructor()
-  {
-    super(true);
-    this.parent = this.__proto__; //Object.getPrototypeOf(this);
+  constructor() {
     $("#username").value = localStorage.getItem("username");
   }
 
-  displayLogin()
-  {
+  displayLogin() {
     $("#navLogin").innerHTML = '<li><a href="#">Log Out</a></li>';
-    $("#navLogin li:first-child a").addEventListener("click", this.doLogout.bind(this.__proto__));
+    $("#navLogin li:first-child a").addEventListener("click", app.doLogout.bind(app));
     $("#inputUsername").style.display = "none";
     $("#chatWindow").style.display = "block";
     $("#chatMsgs").innerHTML = "";
@@ -212,16 +163,14 @@ class Dom extends App
     alertify.success("You've been logged in!");
   }
 
-  displayLogout()
-  {
+  displayLogout() {
     $("#navLogin").innerHTML = "";
     $("#inputUsername").style.display = "block";
     $("#chatWindow").style.display = "";
     // enable input
   }
 
-  updateUserlist(snapshot) // onValue
-  {
+  updateUserlist(snapshot) { // onValue
     $("#userList").innerHTML = '<h4>Users</h4>';
     snapshot.forEach( snap => {
       var div = document.createElement("div");
@@ -230,13 +179,9 @@ class Dom extends App
     });
   }
 
-  updateLike(eventName, snapshot) // onChildAdded onChildChanged onChildRemoved
-  {
+  updateLike(eventName, snapshot) { // onChildAdded onChildChanged onChildRemoved
     var likes = snapshot.val();
     var msgId = snapshot.key;
-
-    //console.log("Dom::updateLike()", snapshot, eventName, likes, msgId);
-
     var likesUsers = [], dislikesUsers = [];
 
     for (var user in likes) {
@@ -247,9 +192,7 @@ class Dom extends App
 
     var div = $(`#chatMsgs div[data-id='${msgId}'] .icons`);
     if (!div || div.length === 0) {
-      console.log("updateLike(): msg does not exist:", msgId);
-      return;
-    }
+      console.warning("updateLike(): msg does not exist:", msgId); return; }
 
     div.innerHTML = `
         <span class="glyphicon glyphicon-thumbs-up">${likesUsers.length}</span>
@@ -258,17 +201,15 @@ class Dom extends App
 
     var divThup = div.querySelector("span[class='glyphicon glyphicon-thumbs-up']");
     var divThdw = div.querySelector("span[class='glyphicon glyphicon-thumbs-down']");
-    divThup.addEventListener("click", this.registerChatLike.bind(this));
-    divThdw.addEventListener("click", this.registerChatLike.bind(this));
+    divThup.addEventListener("click", app.registerChatLike.bind(app));
+    divThdw.addEventListener("click", app.registerChatLike.bind(app));
 
-    var me = this.user.nickname;
-    if (likesUsers.indexOf(me) > -1) divThup.classList.add("me");
-    else if (dislikesUsers.indexOf(me) > -1) divThdw.classList.add("me");
+    var nick = usr.nickname;
+    if (likesUsers.indexOf(nick) > -1) divThup.classList.add("me");
+    else if (dislikesUsers.indexOf(nick) > -1) divThdw.classList.add("me");
 
     if (likesUsers.length + dislikesUsers.length > 0) div.classList.add("show");
     else div.classList.remove("show");
-
-    //console.log(likesUsers.length, dislikesUsers.length);
   }
 
   insertChatMsg(snapshot)  // onChildAdded
@@ -276,8 +217,9 @@ class Dom extends App
     var oMsg = snapshot.val();
         oMsg.id = snapshot.key;
 
-    var keysRequired = ["chan", "event", "msg", "timestamp", "user"];
-    var keysRecivied = keysRequired.filter(key => oMsg.hasOwnProperty(key));
+    var keysRequired = ["chan", "event", "msg", "timestamp", "user"],
+        keysRecivied = keysRequired.filter(key => oMsg.hasOwnProperty(key));
+
     if (keysRecivied.length != keysRequired.length) {
       console.log("doAddMessage(): missing parameters, \nneed:", keysRequired, "\ngot: ", keysRecivied, "\npayload:", oMsg ); return; }
 
@@ -331,10 +273,10 @@ class Dom extends App
     } // switch end
 
     div.querySelector("span[class='glyphicon glyphicon-thumbs-up']")
-       .addEventListener("click", this.registerChatLike.bind(this));
+       .addEventListener("click", app.registerChatLike.bind(app));
 
     div.querySelector("span[class='glyphicon glyphicon-thumbs-down']")
-       .addEventListener("click", this.registerChatLike.bind(this));
+       .addEventListener("click", app.registerChatLike.bind(app));
 
     $("#chatMsgs").appendChild(div);
     $("#chatMsgs").scrollTop = $("#chatMsgs").scrollHeight - $("#chatMsgs").clientHeight;
@@ -343,7 +285,19 @@ class Dom extends App
 
 
 /////////////////////////////// EVENTS ///////////////////////////
-var app;
+var app, dom, usr, db;
+const TMS = firebase.database.ServerValue.TIMESTAMP; // To Much Swag
+
+window.addEventListener("load", () =>
+{
+  $.noConflict(); // disabe bootstraps jQuery
+
+  alertify.logPosition("bottom right");
+  alertify.maxLogItems(2);
+
+  db = firebase.database();
+  app = new App();
+});
 
 function $(str)
 {
@@ -353,73 +307,21 @@ function $(str)
   else return [];
 }
 
-window.addEventListener("load", () =>
-{
-  $.noConflict(); // disabe bootstraps jQuery
-
-  alertify.logPosition("bottom right");
-  alertify.maxLogItems(2);
-
-  app = new App();
-
-  // move to App init
-  $("#startChat").addEventListener("click", app.doLogin.bind(app));
-  $("#chatInput input").addEventListener("keyup", app.registerChatMsg.bind(app));
-}); // onLoad end
-
-window.addEventListener("beforeunload", () => {
-  app.terminate.bind(app);
-
-  var newId = firebase.database().ref().child('msgs').push().key;
-  firebase.database().ref(`users/${username}`).set(null);
-  firebase.database().ref(`msgs/${newId}`).set({
-    'event': "PART",
-    timestamp: firebase.database.ServerValue.TIMESTAMP,
-    chan: "#general",
-    user: app.user.nickname,
-    msg: false
-  });
-
-});
-
-///////////////////////////// TEST ///////////////////////////////
-
-function doLoginGithub()
-{
-  console.log( "doLoginGithub() start" );
-  var provider = new firebase.auth.GithubAuthProvider();
-  firebase.auth().signInWithPopup(provider)
-    .then( result => {
-      var token = result.credential.accessToken;
-      var user = result.user;
-      console.log(user);
-    }).catch( error => {
-      console.log("doLoginGithub() failed:", error);
-      app.doLogout();
-    });
-}
-
 // manual fix database entries
-function firebaseAddDataColumn()
+function remToday()
 {
-  firebase.database().ref('msgs/').once('value', snapshot => {
+  db.ref('msgs/').once('value', snapshot => {
     for (let key in snapshot.val()) {
       var obj = snapshot.val()[key];
+      var thisDate = (new Date(obj.timestamp)).toLocaleString().substr(0,9);
       //obj.event = "PRIVMSG";
       //obj.timestamp = (new Date(obj.datetime)).getTime();
-      //if (!obj.msg) firebase.database().ref(`msgs/${key}`).set(null);
-      if (obj.event == "JOIN" && obj.user == "Mille") {
-        console.log("Mille join");
-        firebase.database().ref(`msgs/${key}`).set(null);
+      //if (!obj.msg) db.ref(`msgs/${key}`).set(null);
+      if (thisDate == "3/27/2017") {
+        console.log("todays date", thisDate);
+        db.ref(`msgs/${key}`).set(null);
       }
-      var thisTimestamp = (new Date(obj.timestamp));
-      var thisTime = thisTimestamp.getHours() + "" + thisTimestamp.getMinutes();
-        if ( Number(thisTime) > 2208 ) {
-          console.log("time is", thisTime);
-          //obj.timestamp = obj.timestamp -= 3600000;
-          console.log(obj);
-          //firebase.database().ref(`msgs/${key}`).set(obj);
-        }
+
     }
   });
 }
