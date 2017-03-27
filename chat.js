@@ -1,97 +1,131 @@
 class App
 {
-  constructor(isCalledFromExtended) {
-    if (isCalledFromExtended) return; // hacky?
-    this.user = new User();
-    this.dom = new Dom();
+  constructor() {
+    usr = new User();
+    dom = new Dom();
+    app = this;
+
+    this.doInit();
     this.doLogin();
   }
 
+  doInit() {
+    $("#startChat").addEventListener("click", app.doLogin.bind(app));
+    $("#chatInput input").addEventListener("keyup", app.registerChatMsg.bind(app));
+  }
+
   doLogin() {
-    if (!(this.user.hasValidNickname())) { this.dom.displayLogout(); return; }
+    if (!(usr.hasValidNickname())) { dom.displayLogout(); return; }
 
-    localStorage.setItem("username", this.user.nickname);
-    this.dom.displayLogin();
+    if (usr.nickname.substr(0,5) != "Guest")
+      localStorage.setItem("username", usr.nickname);
 
+    dom.displayLogin();
 
-<<<<<<< HEAD
-$("#startChat").addEventListener("click", startChat);
+    // check duplicate username
+    db.ref('users/')
+      .orderByKey().equalTo(usr.nickname) // orderBy needed for equalTo'
+      .once("value").then(snapshot => {
 
-doLoginGithub();
-=======
-    firebase.database().ref(`users/${this.user.nickname}`).set({
-      timestamp: firebase.database.ServerValue.TIMESTAMP
-    });
->>>>>>> master
+      if (snapshot.val()) { // is duplicate
+        usr.nickname = "Guest" + ("00000" + Math.floor(Math.random() * 99999) ).substr(-5,5);
+        alertify.delay(5).log(`Nickname ${usr.nickname} in use.`);
+        alertify.delay(7).log(`You have been rename to ${usr.nickname}`);
+      }
 
-    firebase.database().ref('users/').on('value', this.dom.updateUserlist);
-    firebase.database().ref('msgs/').on('child_added', this.dom.insertChatMsg);
+      console.log( (new Date()).getTime(), "USER ONLINE", usr.nickname, snapshot.val() );
 
-    //////////////////////////////////////////////////////
-    if (this.user.nickname == 'Mille') return; //TODO: skip during debugging
+      // Sync with server before JOIN
+      db.ref('msgs/').once('value', () =>
+      {
+        console.log( (new Date()).getTime(), "Sync" );
+        var nick = usr.nickname;
 
-    // save event in chat
-    var newId = firebase.database().ref().child('msgs').push().key;
-    firebase.database().ref(`msgs/${newId}`).set({
-      "event": "JOIN",
-      timestamp: firebase.database.ServerValue.TIMESTAMP,
-      chan: "#general",
-      user: this.user.nickname,
-      msg: false // null would remove the node
-    });
+        db.ref(`users/${nick}`).set({ timestamp: TMS });
+
+        if (usr.nickname != 'Mille') {  //TODO: remove
+          let newId = db.ref().child('msgs').push().key;
+          db.ref(`msgs/${newId}`).set({
+            "event": "JOIN",
+            timestamp: TMS,
+            chan: "#general",
+            user: nick,
+            msg: false // null would remove the node
+          });
+        }
+
+        console.log( (new Date()).getTime(), "Add listeners onDisconnect" );
+        db.ref(`users/${nick}`).onDisconnect().cancel(); // needed if logout, then login
+        db.ref(`users/${nick}`).onDisconnect().set(null);
+
+        if (usr.nickname != "Mille") { //TODO: remove
+          let newId = db.ref().child('msgs').push().key;
+          db.ref(`msgs/${newId}`).onDisconnect().cancel();
+          db.ref(`msgs/${newId}`).onDisconnect().set({
+            'event': "PART",
+            timestamp: TMS,
+            chan: "#general",
+            user: nick, // exists for first time user???
+            msg: false
+          });
+        }
+      }); // sync END
+
+      console.log( (new Date()).getTime(), "Add rest of listeners for chat" );
+      db.ref('msgs/').on('child_added', dom.insertChatMsg.bind(dom));
+      db.ref('users/').on('value', dom.updateUserlist.bind(dom));
+      db.ref('likes/').on('child_added', dom.updateLike.bind(dom, "added"));
+      db.ref('likes/').on('child_changed', dom.updateLike.bind(dom, "changed"));
+      db.ref('likes/').on('child_removed', dom.updateLike.bind(dom, "removed"));
+
+    }); // onValue END
+
   } // doLogin END
 
   doLogout(event) { // can be triggered by onUnload event
-    console.log( "App::doLogout() this:", this );
-
-    this.displayLogout();
-    //localStorage.removeItem("username");
-
-    //firebase.auth().signOut()
-      //.then( result => console.log("Firebase singout successfull"))
-      //.catch( error => console.log("Firebase singout failed. Perhaps not logged in?"));
-
-    console.log("User is logged out.");
+    dom.displayLogout();
     if (event) alertify.log("You've been logged out.");
-
-    if (this.user.nickname == "Mille") return; //TODO: debug
-
-    var newId = firebase.database().ref().child('msgs').push().key;
-    firebase.database().ref(`users/${username}`).set(null);
-    firebase.database().ref(`msgs/${newId}`).set({
-      'event': "PART",
-      timestamp: firebase.database.ServerValue.TIMESTAMP,
-      chan: "#general",
-      user: this.user.nickname,
-      msg: false
-    });
-
+    db.goOffline(); //trigger firebase disconnect
+    db.goOnline();
   }
 
   registerChatMsg(event) {
     if (event.key != "Enter") return;
 
-    var newId = firebase.database().ref().child('msgs').push().key;
-
-    firebase.database().ref(`msgs/${newId}`).set({
+    db.ref('msgs/').push({
       'event': "PRIVMSG",
-      timestamp: firebase.database.ServerValue.TIMESTAMP,
+      timestamp: TMS,
       chan: "#general",
-      user: this.user.nickname,
+      user: usr.nickname,
       msg:  $("#chatInput input").value
     });
+
     $("#chatInput input").value = "";
+    $("#chatInput input").disabled = true;
+    setTimeout(() => {
+        $("#chatInput input").disabled = false;
+        $("#chatInput input").focus();
+    }, 700);
+  }
+
+  registerChatLike(event) {
+    var el = event.target, like;
+
+    if (el.classList.contains("me")) // user is resetting like
+      like = null;
+    else if (el.classList.contains('glyphicon-thumbs-up'))
+      like = true;
+    else if (el.classList.contains('glyphicon-thumbs-down'))
+      like = false;
+
+    var msgId = el.parentElement.parentElement.getAttribute("data-id");
+    db.ref(`likes/${msgId}`).set({ [usr.nickname]: like });
   }
 
 }
 
-class User extends App
+class User
 {
-  constructor(parent) {
-      super(true);
-      this.parent = Object.getPrototypeOf(this);
-  }
-
   set nickname(val) {
     if (val) $("#username").value = val;
   }
@@ -100,64 +134,26 @@ class User extends App
   }
   hasValidNickname()
   {
-    var nick = this.nickname;
-
-    if (!Boolean(nick))
+    if (!Boolean(usr.nickname))
       return;
-    else if (nick.length < 2)
+    else if (usr.nickname.length < 2)
       alert("Choose a nickname at least 2 characters long");
-    else if (nick.match(/\s/))
+    else if (usr.nickname.match(/\s/))
       alert("Choose a nickname without blankspaces");
     else
       return true;
   }
 }
-<<<<<<< HEAD
-function doLoginGithub()
-{
-  var provider = new firebase.auth.GithubAuthProvider();
-  firebase.auth().signInWithPopup(provider)
-    .then(function(result) {
-      var token = result.credential.accessToken;
-      var user = result.user;
 
-      console.log("doLoginGithub: ", result);
-
-      $("#navLogin").innerHTML = '<li><a href="#">Log Out</a></li>';
-      $("#navLogin li:first-child a").addEventListener("click", doLogout);
-      $("#inputUsername").style.display = "";
-      $("#chatWindow").style.display = "block";
-
-      console.log("User is logged in.");
-      alertify.success("You've been logged in!");
-
-    }).catch(function(error) {
-      // Handle Errors here.
-      var errorCode = error.code;
-      var errorMessage = error.message;
-      // The email of the user's account used.
-      var email = error.email;
-      // The firebase.auth.AuthCredential type that was used.
-      var credential = error.credential;
-      console.log("doLoginGithub() failed:", error);
-      doLogout();
-    });
-}
-function doLogin()
-=======
-
-class Dom extends App
->>>>>>> master
+class Dom
 {
   constructor() {
-    super(true);
-    this.parent = Object.getPrototypeOf(this);
     $("#username").value = localStorage.getItem("username");
   }
 
   displayLogin() {
     $("#navLogin").innerHTML = '<li><a href="#">Log Out</a></li>';
-    $("#navLogin li:first-child a").addEventListener("click", this.doLogout.bind(this.parent));
+    $("#navLogin li:first-child a").addEventListener("click", app.doLogout.bind(app));
     $("#inputUsername").style.display = "none";
     $("#chatWindow").style.display = "block";
     $("#chatMsgs").innerHTML = "";
@@ -174,7 +170,7 @@ class Dom extends App
     // enable input
   }
 
-  updateUserlist(snapshot) { // Firebase onValue
+  updateUserlist(snapshot) { // onValue
     $("#userList").innerHTML = '<h4>Users</h4>';
     snapshot.forEach( snap => {
       var div = document.createElement("div");
@@ -183,13 +179,52 @@ class Dom extends App
     });
   }
 
-  insertChatMsg(snapshot) { // Firebase onChildAdded
+  updateLike(eventName, snapshot) { // onChildAdded onChildChanged onChildRemoved
+    var likes = snapshot.val();
+    var msgId = snapshot.key;
+    var likesUsers = [], dislikesUsers = [];
+
+    for (var user in likes) {
+      if (eventName == "removed") {}
+      else if (likes[user] === true) likesUsers.push(user);
+      else if (likes[user] === false) dislikesUsers.push(user);
+    }
+
+    var div = $(`#chatMsgs div[data-id='${msgId}'] .icons`);
+    if (!div || div.length === 0) {
+      console.warning("updateLike(): msg does not exist:", msgId); return; }
+
+    div.innerHTML = `
+        <span class="glyphicon glyphicon-thumbs-up">${likesUsers.length}</span>
+        <span class="glyphicon glyphicon-thumbs-down">${dislikesUsers.length}</span>
+    `.replace(/(\s)+/, "$1"); // remove multiple whitespaces for cleaner dom?
+
+    var divThup = div.querySelector("span[class='glyphicon glyphicon-thumbs-up']");
+    var divThdw = div.querySelector("span[class='glyphicon glyphicon-thumbs-down']");
+    divThup.addEventListener("click", app.registerChatLike.bind(app));
+    divThdw.addEventListener("click", app.registerChatLike.bind(app));
+
+    var nick = usr.nickname;
+    if (likesUsers.indexOf(nick) > -1) divThup.classList.add("me");
+    else if (dislikesUsers.indexOf(nick) > -1) divThdw.classList.add("me");
+
+    if (likesUsers.length + dislikesUsers.length > 0) div.classList.add("show");
+    else div.classList.remove("show");
+  }
+
+  insertChatMsg(snapshot)  // onChildAdded
+  {
     var oMsg = snapshot.val();
-    //console.log(oMsg);
-    var keysRequired = ["chan", "event", "msg", "timestamp", "user"];
-    var keysRecivied = keysRequired.filter(key => oMsg.hasOwnProperty(key));
+        oMsg.id = snapshot.key;
+
+    var keysRequired = ["chan", "event", "msg", "timestamp", "user"],
+        keysRecivied = keysRequired.filter(key => oMsg.hasOwnProperty(key));
+
     if (keysRecivied.length != keysRequired.length) {
       console.log("doAddMessage(): missing parameters, \nneed:", keysRequired, "\ngot: ", keysRecivied, "\npayload:", oMsg ); return; }
+
+    // if msg already exist delete
+    $(`div[data-id='${oMsg.id}']`).forEach( el => el.outerHTML = "" );
 
     // convert unix epoch to time
     oMsg.time = (new Date(oMsg.timestamp)).toTimeString().slice(0,8); //hh:mm:ss
@@ -203,8 +238,8 @@ class Dom extends App
       case 'PRIVMSG':
         div.innerHTML = `
           <div class="icons">
-            <span class="glyphicon glyphicon-thumbs-up"></span>
-            <span class="glyphicon glyphicon-thumbs-down"></span>
+            <span class="glyphicon glyphicon-thumbs-up">0</span>
+            <span class="glyphicon glyphicon-thumbs-down">0</span>
           </div>
           <div class="text">
             (${oMsg.time})
@@ -215,8 +250,8 @@ class Dom extends App
       case 'JOIN':
         div.innerHTML = `
           <div class="icons">
-            <span class="glyphicon glyphicon-thumbs-up"></span>
-            <span class="glyphicon glyphicon-thumbs-down"></span>
+            <span class="glyphicon glyphicon-thumbs-up">0</span>
+            <span class="glyphicon glyphicon-thumbs-down">0</span>
           </div>
           <div class="text">
             (${oMsg.time})
@@ -227,8 +262,8 @@ class Dom extends App
       case 'PART':
         div.innerHTML = `
           <div class="icons">
-            <span class="glyphicon glyphicon-thumbs-up"></span>
-            <span class="glyphicon glyphicon-thumbs-down"></span>
+            <span class="glyphicon glyphicon-thumbs-up">0</span>
+            <span class="glyphicon glyphicon-thumbs-down">0</span>
           </div>
           <div class="text">
             (${oMsg.time})
@@ -237,27 +272,31 @@ class Dom extends App
         `.trim(); break;
     } // switch end
 
+    div.querySelector("span[class='glyphicon glyphicon-thumbs-up']")
+       .addEventListener("click", app.registerChatLike.bind(app));
+
+    div.querySelector("span[class='glyphicon glyphicon-thumbs-down']")
+       .addEventListener("click", app.registerChatLike.bind(app));
+
     $("#chatMsgs").appendChild(div);
     $("#chatMsgs").scrollTop = $("#chatMsgs").scrollHeight - $("#chatMsgs").clientHeight;
   }
 } // Dom() END
 
-var app;
+
+/////////////////////////////// EVENTS ///////////////////////////
+var app, dom, usr, db;
+const TMS = firebase.database.ServerValue.TIMESTAMP; // To Much Swag
 
 window.addEventListener("load", () =>
 {
   $.noConflict(); // disabe bootstraps jQuery
-  app = new App();
 
   alertify.logPosition("bottom right");
   alertify.maxLogItems(2);
 
-  $("#startChat").addEventListener("click", app.doLogin.bind(app));
-  $("#chatInput input").addEventListener("keyup", app.registerChatMsg.bind(app));
-}); // onLoad end
-
-window.addEventListener("unload", () => {
-  if (app.user.nickname) app.dom.displayLogout();
+  db = firebase.database();
+  app = new App();
 });
 
 function $(str)
@@ -268,42 +307,21 @@ function $(str)
   else return [];
 }
 
-
-function doLoginGithub()
+// manual fix database entries
+function remToday()
 {
-  console.log( "doLoginGithub() start" );
-  var provider = new firebase.auth.GithubAuthProvider();
-  firebase.auth().signInWithPopup(provider)
-    .then( result => {
-      var token = result.credential.accessToken;
-      var user = result.user;
-      console.log(user);
-    }).catch( error => {
-      console.log("doLoginGithub() failed:", error);
-      app.doLogout();
-    });
-}
-
-// manual edit database
-function firebaseAddDataColumn() {
-  firebase.database().ref('msgs/').once('value', snapshot => {
+  db.ref('msgs/').once('value', snapshot => {
     for (let key in snapshot.val()) {
       var obj = snapshot.val()[key];
+      var thisDate = (new Date(obj.timestamp)).toLocaleString().substr(0,9);
       //obj.event = "PRIVMSG";
       //obj.timestamp = (new Date(obj.datetime)).getTime();
-      //if (!obj.msg) firebase.database().ref(`msgs/${key}`).set(null);
-      if (obj.event == "JOIN" && obj.user == "Mille") {
-        console.log("Mille join");
-        firebase.database().ref(`msgs/${key}`).set(null);
+      //if (!obj.msg) db.ref(`msgs/${key}`).set(null);
+      if (thisDate == "3/27/2017") {
+        console.log("todays date", thisDate);
+        db.ref(`msgs/${key}`).set(null);
       }
-      var thisTimestamp = (new Date(obj.timestamp));
-      var thisTime = thisTimestamp.getHours() + "" + thisTimestamp.getMinutes();
-        if ( Number(thisTime) > 2208 ) {
-          console.log("time is", thisTime);
-          //obj.timestamp = obj.timestamp -= 3600000;
-          console.log(obj);
-          //firebase.database().ref(`msgs/${key}`).set(obj);
-        }
+
     }
   });
 }
