@@ -24,7 +24,7 @@ class App
 
     // check duplicate username
     db.ref('users/')
-      .orderByKey().equalTo(usr.nickname) // orderBy needed for equalTo'
+      .orderByKey().equalTo(usr.nickname) // orderBy() needed for equalTo()
       .once("value").then(snapshot => {
 
       if (snapshot.val()) { // is duplicate
@@ -33,17 +33,14 @@ class App
         alertify.delay(7).log(`You have been rename to ${usr.nickname}`);
       }
 
-      console.log( (new Date()).getTime(), "USER ONLINE", usr.nickname, snapshot.val() );
-
       // Sync with server before JOIN
       db.ref('msgs/').once('value', () =>
       {
-        console.log( (new Date()).getTime(), "Sync" );
         var nick = usr.nickname;
 
         db.ref(`users/${nick}`).set({ timestamp: TMS });
 
-        if (usr.nickname != 'Mille') {  //TODO: remove
+        if (nick != 'Mille') {  // skip log JOIN
           let newId = db.ref().child('msgs').push().key;
           db.ref(`msgs/${newId}`).set({
             "event": "JOIN",
@@ -54,11 +51,11 @@ class App
           });
         }
 
-        console.log( (new Date()).getTime(), "Add listeners onDisconnect" );
+        // add onDisconnect listeners
         db.ref(`users/${nick}`).onDisconnect().cancel(); // needed if logout, then login
         db.ref(`users/${nick}`).onDisconnect().set(null);
 
-        if (usr.nickname != "Mille") { //TODO: remove
+        if (nick != "Mille") { // skip log PART
           let newId = db.ref().child('msgs').push().key;
           db.ref(`msgs/${newId}`).onDisconnect().cancel();
           db.ref(`msgs/${newId}`).onDisconnect().set({
@@ -71,7 +68,6 @@ class App
         }
       }); // sync END
 
-      console.log( (new Date()).getTime(), "Add rest of listeners for chat" );
       db.ref('msgs/').on('child_added', dom.insertChatMsg.bind(dom));
       db.ref('users/').on('value', dom.updateUserlist.bind(dom));
       db.ref('likes/').on('child_added', dom.updateLike.bind(dom, "added"));
@@ -157,9 +153,7 @@ class Dom
     $("#inputUsername").style.display = "none";
     $("#chatWindow").style.display = "block";
     $("#chatMsgs").innerHTML = "";
-    // disable input
 
-    console.log("User is logged in.");
     alertify.success("You've been logged in!");
   }
 
@@ -167,11 +161,11 @@ class Dom
     $("#navLogin").innerHTML = "";
     $("#inputUsername").style.display = "block";
     $("#chatWindow").style.display = "";
-    // enable input
   }
 
   updateUserlist(snapshot) { // onValue
     $("#userList").innerHTML = '<h4>Users</h4>';
+    
     snapshot.forEach( snap => {
       var div = document.createElement("div");
       div.innerText = snap.key;
@@ -221,7 +215,7 @@ class Dom
         keysRecivied = keysRequired.filter(key => oMsg.hasOwnProperty(key));
 
     if (keysRecivied.length != keysRequired.length) {
-      console.log("doAddMessage(): missing parameters, \nneed:", keysRequired, "\ngot: ", keysRecivied, "\npayload:", oMsg ); return; }
+      console.warning("doAddMessage(): missing parameters, \nneed:", keysRequired, "\ngot: ", keysRecivied, "\npayload:", oMsg ); return; }
 
     // if msg already exist delete
     $(`div[data-id='${oMsg.id}']`).forEach( el => el.outerHTML = "" );
@@ -284,13 +278,13 @@ class Dom
 } // Dom() END
 
 
-/////////////////////////////// EVENTS ///////////////////////////
+/////////////////////////////// GLOBAL ///////////////////////////
 var app, dom, usr, db;
-const TMS = firebase.database.ServerValue.TIMESTAMP; // To Much Swag
+const TMS = firebase.database.ServerValue.TIMESTAMP;
 
 window.addEventListener("load", () =>
 {
-  $.noConflict(); // disabe bootstraps jQuery
+  $.noConflict(); // disable bootstraps jQuery
 
   alertify.logPosition("bottom right");
   alertify.maxLogItems(2);
@@ -305,23 +299,4 @@ function $(str)
   if (els.length === 1 && str.indexOf("#") > -1) return els[0];
   else if (els.length > 0) return Array.from(els);
   else return [];
-}
-
-// manual fix database entries
-function remToday()
-{
-  db.ref('msgs/').once('value', snapshot => {
-    for (let key in snapshot.val()) {
-      var obj = snapshot.val()[key];
-      var thisDate = (new Date(obj.timestamp)).toLocaleString().substr(0,9);
-      //obj.event = "PRIVMSG";
-      //obj.timestamp = (new Date(obj.datetime)).getTime();
-      //if (!obj.msg) db.ref(`msgs/${key}`).set(null);
-      if (thisDate == "3/27/2017") {
-        console.log("todays date", thisDate);
-        db.ref(`msgs/${key}`).set(null);
-      }
-
-    }
-  });
 }
