@@ -4,13 +4,14 @@ class App
     usr = new User();
     dom = new Dom();
     app = this;
-    app.doInit();
+
+    this.doInit();
+    this.doLogin();
   }
 
   doInit() {
     $("#startChat").addEventListener("click", app.doLogin.bind(app));
     $("#chatInput input").addEventListener("keyup", app.registerChatMsg.bind(app));
-    app.doLogin();
   }
 
   doLogin() {
