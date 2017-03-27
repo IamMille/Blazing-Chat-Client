@@ -165,7 +165,7 @@ class Dom
 
   updateUserlist(snapshot) { // onValue
     $("#userList").innerHTML = '<h4>Users</h4>';
-    
+
     snapshot.forEach( snap => {
       var div = document.createElement("div");
       div.innerText = snap.key;
@@ -227,44 +227,42 @@ class Dom
     div.setAttribute("data-id", oMsg.id || "");
     div.classList.add("msg");
 
+    div.innerHTML =`
+      <div class="icons">
+        <span class="glyphicon glyphicon-thumbs-up">0</span>
+        <span class="glyphicon glyphicon-thumbs-down">0</span>
+      </div>
+    `;
+
     switch(oMsg.event)
     {
       case 'PRIVMSG':
-        div.innerHTML = `
-          <div class="icons">
-            <span class="glyphicon glyphicon-thumbs-up">0</span>
-            <span class="glyphicon glyphicon-thumbs-down">0</span>
-          </div>
+        div.innerHTML += `
           <div class="text">
             (${oMsg.time})
             &lt;<b>${oMsg.user}</b>&gt; ${oMsg.msg}
           </div>
-        `.trim(); break;
+        `; break;
 
       case 'JOIN':
-        div.innerHTML = `
-          <div class="icons">
-            <span class="glyphicon glyphicon-thumbs-up">0</span>
-            <span class="glyphicon glyphicon-thumbs-down">0</span>
-          </div>
+        div.innerHTML += `
           <div class="text">
             (${oMsg.time})
             *** <b>${oMsg.user}</b> joined the chat.
           </div>
-        `.trim(); break;
+        `; break;
 
       case 'PART':
-        div.innerHTML = `
-          <div class="icons">
-            <span class="glyphicon glyphicon-thumbs-up">0</span>
-            <span class="glyphicon glyphicon-thumbs-down">0</span>
-          </div>
+        div.innerHTML += `
           <div class="text">
             (${oMsg.time})
             *** <b>${oMsg.user}</b> left the chat.
           </div>
-        `.trim(); break;
+        `; break;
     } // switch end
+
+    // remove multiple whitespaces for cleaner dom?
+    div.innerHTML = div.innerHTML.replace(/(\s)+/, "$1");
 
     div.querySelector("span[class='glyphicon glyphicon-thumbs-up']")
        .addEventListener("click", app.registerChatLike.bind(app));
